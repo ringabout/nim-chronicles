@@ -52,9 +52,9 @@ proc appendValueImpl[T](r: var LogRecord, value: T) =
       appendValueImpl(r, formatItIMPL value)
     appendChar(r, ']')
 
-  elif value is string:
+  elif value is string|cstring:
     let
-      needsEscape = value.find(escChars) > -1
+      needsEscape = containsEscapedChars(value)
       needsQuote = (value.find(quoteChars) > -1) or needsEscape
     if needsQuote:
       when r.output is OutputStream:
@@ -68,7 +68,7 @@ proc appendValueImpl[T](r: var LogRecord, value: T) =
 
   else:
     const typeName = typetraits.name(T)
-    {.fatal: "The textlines format does not support the '" & typeName & "'".}
+    {.fatal: "The textlines format does not support the '" & typeName & "' type".}
 
 template appendValue(r: var LogRecord, value: auto) =
   mixin formatItIMPL

@@ -284,7 +284,7 @@ template prepareOutput*(r: var auto, level: LogLevel) =
     activateOutput(r.output, level)
 
 proc initOutputStream*(LogRecord: type): auto =
-  when LogRecord.OutputKind is StdOutOutput:
+  when true or LogRecord.OutputKind is StdOutOutput:
     var outStream {.threadvar.}: OutputStreamHandle
     if outStream.s == nil:
       outStream = memoryOutput()
@@ -696,7 +696,8 @@ macro createStreamRecordTypes: untyped =
       result.add quote do:
         template activeChroniclesStream*: typedesc = `streamName`
 
-  echo result.repr
+  when defined(debugLogImpl):
+    echo result.repr
 
 createStreamRecordTypes()
 

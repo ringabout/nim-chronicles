@@ -327,9 +327,11 @@ the program.
 Topics in `chronicles_disabled_topics` have precedence over the ones in
 `chronicles_enabled_topics` or `chronicles_required_topics`.
 
-### chronicles_disable_thread_id  
+### chronicles_thread_ids
 
-Disable log thread(tid)  
+By default, in projects compiled with the `--treads:on` option, Chronicles will
+log the current thread id in the `tid` property of each log statement. This option
+can be used to explicitly enable or disable the injection of the `tid` property.
 
 ### chronicles_log_level
 

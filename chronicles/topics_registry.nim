@@ -31,13 +31,13 @@ type
 
   RuntimeConfig* = object
     sinkStates: array[totalSinks, SinkFilteringState]
-    topicStates*: Table[string, ptr TopicSettings]
 
   SinksBitmask = uint8
 
 var
   registryLock: Lock
   runtimeConfig {.guard: registryLock.}: RuntimeConfig
+  gTopicStates {.guard: registryLock.}: Table[string, ptr TopicSettings]
 
 when compileOption("threads"):
   var mainThreadId = getThreadId()
@@ -62,7 +62,7 @@ proc clearTopicsRegistry* =
       sink.totalEnabledTopics = 0
       sink.totalRequiredTopics = 0
 
-    for name, topicSinksSettings in mpairs(runtimeConfig.topicStates):
+    for name, topicSinksSettings in mpairs(gTopicStates):
       for topic in mitems(topicSinksSettings[]):
         topic.state = Normal
 
@@ -73,7 +73,7 @@ proc registerTopic*(name: string, topic: ptr TopicSettings): ptr TopicSettings =
     doAssert getThreadId() == mainThreadId
 
   lockRegistry:
-    runtimeConfig.topicStates[name] = topic
+    gTopicStates[name] = topic
 
   return topic
 
@@ -85,13 +85,13 @@ proc setTopicState*(name: string,
     return false
 
   lockRegistry:
-    if not runtimeConfig.topicStates.hasKey(name):
+    if not gTopicStates.hasKey(name):
       return false
 
     template sinkState: auto =
       runtimeConfig.sinkStates[sinkIdx]
 
-    var topicPtr = runtimeConfig.topicStates[name][sinkIdx]
+    var topicPtr = gTopicStates[name][sinkIdx]
 
     case topicPtr.state
     of Enabled: dec sinkState.totalEnabledTopics
@@ -112,7 +112,7 @@ proc setBit(x: var SinksBitmask, bitIdx: int, bitValue: bool) =
   x = x or (SinksBitmask(bitValue) shl bitIdx)
 
 proc topicsMatch*(logStmtLevel: LogLevel,
-                  logStmtTopics: openarray[ptr TopicSettings]): SinksBitmask =
+                  logStmtTopics: openarray[ptr TopicSettings]): SinksBitmask {.gcsafe.} =
   lockRegistry:
     for sinkIdx {.inject.} in 0 ..< totalSinks:
       template sinkState: auto = runtimeConfig.sinkStates[sinkIdx]
@@ -147,5 +147,5 @@ proc topicsMatch*(logStmtLevel: LogLevel,
 
 proc getTopicState*(topic: string): ptr TopicSettings =
   lockRegistry:
-    return runtimeConfig.topicStates.getOrDefault(topic)
+    return gTopicStates.getOrDefault(topic)
 

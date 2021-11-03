@@ -4,8 +4,16 @@ import
   options, log_output
 
 const
-  escChars*: set[char] = strutils.NewLines + {'"', '\\'}
+  controlChars =  {'\x00'..'\x1f'}
+  extendedAsciiChars = {'\x7f'..'\xff'}
+  escapedChars*: set[char] = strutils.NewLines + {'"', '\\'} + controlChars + extendedAsciiChars
   quoteChars*: set[char] = {' ', '='}
+
+func containsEscapedChars*(str: string|cstring): bool =
+  for c in str:
+    if c in escapedChars:
+      return true
+  return false
 
 proc writeEscapedString*(output: OutputStream, str: string) =
   for c in str:
@@ -14,7 +22,14 @@ proc writeEscapedString*(output: OutputStream, str: string) =
     of '\\': output.write "\\\\"
     of '\r': output.write "\\r"
     of '\n': output.write "\\n"
-    else: output.write c
+    else:
+      const hexChars = "0123456789abcdef"
+      if c >= char(0x20) and c <= char(0x7e):
+        output.write c
+      else:
+        output.write("\\x")
+        output.write hexChars[int(c) shr 4 and 0xF]
+        output.write hexChars[int(c) and 0xF]
 
 template appendLogLevelMarker*(r: var auto, lvl: LogLevel) =
   when r.colors != NoColors:
