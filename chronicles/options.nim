@@ -57,7 +57,7 @@ type
     oStdErr,
     oFile,
     oSysLog
-    oDynamic
+    oCallback
 
   LogFileMode = enum
     Append,
@@ -175,7 +175,7 @@ func logDestinationFromStr(s: string): LogDestination {.compileTime.} =
   of "stdout": result.kind = oStdOut
   of "stderr": result.kind = oStdErr
   of "syslog": result.kind = oSysLog
-  of "dynamic": result.kind = oDynamic
+  of "callback": result.kind = oCallback
   of "file":
     result.kind = oFile
     result.filename = ""

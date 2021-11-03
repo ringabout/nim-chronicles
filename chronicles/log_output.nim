@@ -28,7 +28,7 @@ type
 
   LogOutputStr* = OutStr
 
-  DynamicOutput* = object
+  CallbackOutput* = object
     currentRecordLevel: LogLevel
     writer*: proc (logLevel: LogLevel, logRecord: OutStr) {.gcsafe, raises: [Defect].}
 
@@ -188,15 +188,15 @@ proc selectOutputType(s: var StreamCodeNodes, dst: LogDestination): NimNode =
                                    newLit($s.streamName), newLit(outputId))
 
       s.outputsTuple.add newCall(bindSym"createFileOutput", fileName, mode)
-  elif dst.kind == oDynamic:
+  elif dst.kind == oCallback:
     outputId = s.outputsTuple.len
-    s.outputsTuple.add newTree(nnkObjConstr, bnd"DynamicOutput")
+    s.outputsTuple.add newTree(nnkObjConstr, bnd"CallbackOutput")
 
   case dst.kind
   of oStdOut: bnd"StdOutOutput"
   of oStdErr: bnd"StdErrOutput"
   of oSysLog: bnd"SysLogOutput"
-  of oFile, oDynamic:
+  of oFile, oCallback:
     newTree(nnkBracketExpr,
             bnd"StreamOutputRef", s.streamName, newLit(outputId))
 
@@ -229,7 +229,7 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   if false:
      #defined(js) or
      #sink.destinations.len > 1 or
-     #sink.destinations[0].kind in {oSyslog,oDynamic} or
+     #sink.destinations[0].kind in {oSyslog,oCallback} or
      #compileOption("threads"):
 
     # Here, we build the list of outputs as a tuple
@@ -267,7 +267,7 @@ template activateOutput*(o: var FileOutput, level: LogLevel) =
 template activateOutput*(o: var StreamOutputRef, level: LogLevel) =
   activateOutput(deref(o), level)
 
-template activateOutput*(o: var (SysLogOutput|DynamicOutput), level: LogLevel) =
+template activateOutput*(o: var (SysLogOutput|CallbackOutput), level: LogLevel) =
   o.currentRecordLevel = level
 
 template activateOutput*(o: var PassThroughOutput, level: LogLevel) =
@@ -386,13 +386,13 @@ template append*(o: var SysLogOutput, s: OutStr) =
 
   syslog(syslogLevel or LOG_PID, "%s", s.toCstring)
 
-template append*(o: var DynamicOutput, s: OutStr) =
+template append*(o: var CallbackOutput, s: OutStr) =
   if o.writer.isNil:
-    undeliveredMsg "A writer was not configured for a dynamic log output device", s, nil
+    undeliveredMsg "A writer was not configured for a callback output", s, nil
   else:
     (o.writer)(o.currentRecordLevel, s)
 
-template flushOutput*(o: var (SysLogOutput|DynamicOutput)) = discard
+template flushOutput*(o: var (SysLogOutput|CallbackOutput)) = discard
 
 # The pass-through output just acts as a proxy, redirecting a single `append`
 # call to multiple destinations:
